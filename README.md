@@ -1,4 +1,4 @@
-# Game Muster
+# Deployment of a Test Project
 
 Демонтрация процесса деплоймента на виртуальную машину Google Cloud - [link](https://www.youtube.com/watch?v=dKnYNrBoqQc)
 
@@ -7,70 +7,89 @@
 Run the following commands to bootstrap your environment:
     
     sudo apt-get update
-    sudo apt-get install -y git python3-dev python3-venv python3-pip supervisor nginx vim mysql-server
-    git clone https://github.com/python-dev-blog/game_muster
-    cd game_muster
+    sudo apt-get install -y git python3-dev python3-venv python3-pip supervisor nginx vim mysql-server libmysqlclient-dev
+    git clone https://github.com/your-profile/your-project-name
+    cd your-project-name/
   
-python3 -m venv venv   
-source venv/bin/activate
-pip3 install -r requirements/dev.txt 
+    python3 -m venv .venv   
+    source .venv/bin/activate
+    pip3 install -r requirements/prod.txt 
 
-cp .env.template .env
-while read file; do
-   export "$file"
-   done < .env
-    cd game_muster
+## .ENV files
 
-    python -m venv .venv   
-    .venv/bin/activate
-    pip install -r requirements/dev.txt 
-
-    python manage.py makemigrations
-    python manage.py migrate
-    python manage.py runserver --settings=deployment.settings.dev
-
-    cp .env.template .env
+    vim .env
+    i // to enter insert mode
+    // paste the data
+    ESC // to exit insert mode
+    :wq // to save and quit in one step
+    
     while read file; do
-       export "$file"
-       done < .env
+        export "$file"
+        done < .env
 
-Run the app locally:
+    printenv | grep SECRET
 
-    python manage.py runserver --settings=deployment.settings.dev
+## MySQL inside VM:
+
+[StackOverflaw](https://stackoverflow.com/questions/39281594/error-1698-28000-access-denied-for-user-rootlocalhost)
+
+(replace YOUR_SYSTEM_USER with the username you have)
+
+    SELECT User, Host, plugin FROM mysql.user;
+    sudo mysql -u root # I had to use "sudo" since it was a new installation
+    SELECT User, Host, plugin FROM mysql.user;
+
+    mysql> USE mysql;
+    mysql> CREATE USER 'YOUR_SYSTEM_USER'@'localhost' IDENTIFIED BY 'YOUR_PASSWD';
+    mysql> GRANT ALL PRIVILEGES ON *.* TO 'YOUR_SYSTEM_USER'@'localhost';
+    mysql> UPDATE user SET plugin='auth_socket' WHERE User='YOUR_SYSTEM_USER';
+    mysql> FLUSH PRIVILEGES;
+    mysql> exit;
+
+    sudo service mysql restart
+
+Remember that if you use option #2 you'll have to connect to MySQL as your system username (mysql -u YOUR_SYSTEM_USER).
+Creating a database for a Django Project:
+
+    mysql -u YOUR_SYSTEM_USER -p
+    // enter password
+    CREATE DATABASE your_database_name;
+    GRANT ALL PRIVILEGES ON your_database_name.* TO 'your_username'@'localhost';
+    FLUSH PRIVILEGES;
+    EXIT;
+
+Migrating:
+
+    python3 manage.py makemigrations --settings=deployment.settings.prod
+    python3 manage.py migrate --settings=deployment.settings.prod
+    python3 manage.py loaddata data.json --settings=deployment.settings.prod
 
 Run the app with Waitress:
 
-    waitress-serve --listen=*:8000 your-project-name.wsgi:application
-
+    waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
     
 Collect static files:
 
-    python3 manage.py collectstatic --settings=game_muster.settings.prod
+    python3 manage.py collectstatic --settings=deployment.settings.prod
+
+## NGINX   
+
+Routing into NGINX file:
+
+    sudo vim /etc/nginx/sites-enabled/default  
     
-
-### IGDB usage:
-
-Get a list of games from IGDB API:
-    
-    python3 manage.py shell
-
-    >>>> from game_catalog.utils.igdb_api import IgdbApi
-    >>>> IgdbApi().get_games()
-    >>>> 
-
-
-### Setup NGINX:
-
-    sudo vim /etc/nginx/sites-enabled/default:
-    
-Config file:
+Config file (paste the following):
 
     server {
             listen 80 default_server;
             listen [::]:80 default_server;
 
             location /static/ {
-                alias /home/user/game_muster/static/; 
+                alias /home/shakhzod/Deployment/static/; 
+            }
+
+            location /media/ {
+                alias /home/shakhzod/Deployment/media/; 
             }
 
             location / {
@@ -82,26 +101,41 @@ Config file:
                 add_header Access-Control-Allow-Origin *;
             }
     }
+
+Allow access for static and media files to NGINX:
+
+    sudo usermod -a -G shakhzod www-data
     
 Restart NGINX:
     
     sudo service nginx restart
-    
-    
-### Setup Supervisor:
 
-    cd /etc/supervisor/conf.d/
-    sudo vim game_muster.conf
+(Kill other ports if they are run):
+
+    sudo lsof -i :8000
+    sudo kill -9 $(sudo lsof -t -i:8000)
+
+Run again with Waitress:
+
+    waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
+
+## Supervisor:
+
+    cd /etc/supervisor/conf.d/deployment.conf
+    sudo vim deployment.conf
     
 Config file:
     
-    [program:game_muster]
-    command = /home/user/game_muster/venv/bin/gunicorn game_muster.wsgi  -b 127.0.0.1:8000 -w 4 --timeout 90
+    [program:deployment]
+    command=/home/shakhzod/Deployment/.venv/bin/gunicorn deployment.wsgi:application -b 127.0.0.1:8000 -w 4 --timeout 90
     autostart=true
     autorestart=true
-    directory=/home/user/game_muster 
-    stderr_logfile=/var/log/game_muster.err.log
-    stdout_logfile=/var/log/game_muster.out.log
+    stderr_logfile=/var/log/deployment.err.log
+    stdout_logfile=/var/log/deployment.out.log
+    directory=/home/shakhzod/Deployment
+    user=shakhzod
+    environment=PATH="/home/shakhzod/Deployment/.venv/bin",DJANGO_SETTINGS_MODULE="deployment.settings.prod"
+
     
 Update supervisor with the new process:
     
@@ -110,4 +144,4 @@ Update supervisor with the new process:
     
 To restart the process after the code updates run:
 
-    sudo supervisorctl restart game_muster
+    sudo supervisorctl restart deployment

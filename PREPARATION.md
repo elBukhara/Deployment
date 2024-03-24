@@ -10,15 +10,20 @@
 
 ## .env File
 
-    pip install python-dotenv
+    pip install django-environ
 
 In settings.py:
 
-    from dotenv import find_dotenv, load_dotenv
+    from pathlib import Path
+    import environ
+    import os
 
-    dotenv_path = find_dotenv()
-    load_dotenv(dotenv_path)
-    SECRET_KEY = os.getenv('SECRET_KEY')
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+    env = environ.Env()
+    environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+    SECRET_KEY = env('SECRET_KEY')
 
 ## MySQL database
 
@@ -33,8 +38,8 @@ In settings.py:
             'NAME': os.getenv('DB_NAME'),
             'USER': os.getenv('DB_USER'),
             'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT'),
+            'HOST': os.getenv('DB_HOST'), #localhost
+            'PORT': os.getenv('DB_PORT'), #3306
         }
     }
 
@@ -46,7 +51,7 @@ migrate data:
 
 ## Requirements
 
-Create a new folder 'requirements'
+Create a new folder `requirements`
 
     pip3 freeze > requirements/dev.txt
     pip3 freeze > requirements/prod.txt
@@ -57,17 +62,17 @@ Create a folder 'settings' within the project
 create ```__init__.py```
 create ```base.py``` and copy-paste from initial settings.
 in the ```base.py``` add ```.parent```
-py -> delete settings.py
+delete settings.py
 
 create ```dev.py``` and add database sqllite for development purposes
 create ```prod.py``` and add MySQL for production
 
-Example:
+Example `settings/dev.py`:
 
     from .base import *
 
     DEBUG = True
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS = ['*']
 
     DATABASES = {
         'default': {
@@ -91,6 +96,7 @@ Example:
     STATICFILES_DIRS = [
         os.path.join(BASE_DIR, 'frontend/static/'),
     ]
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 ## Adding Images and Media
 
@@ -115,9 +121,8 @@ Example:
 
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-## Waitress (Gunicorn)
 
-    pip install waitress
+## WSGI
 
 In the ``wsqi.py`` add ``prod`` to the end:
 
@@ -128,6 +133,14 @@ In the ``wsqi.py`` add ``prod`` to the end:
 
     application = get_wsgi_application()
 
+### Using Waitress:
+
+    pip install waitress
+
+### Or using Gunicorn:
+
+    pip install gunicorn
+
 ## Running App
 
 Running locally:
@@ -136,4 +149,10 @@ Running locally:
 
 Running via Waitress:
 
-    waitress-serve --listen=*:8000 your-project-name.wsgi:application
+    waitress-serve --listen=*:8000 deployment.wsgi:application
+
+    waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
+
+Or run with Gunicorn
+
+    gunicorn deployment.wsgi -b 127.0.0.1:8000
