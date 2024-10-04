@@ -12,6 +12,20 @@
 
     pip install django-environ
 
+here is the sample of .env file:
+
+    ADMIN_URL='admin/'
+    SECRET_KEY=SECRET
+    ALLOWED_HOSTS=['*']
+    CSRF_TRUSTED_ORIGINS=["http://127.0.0.1:8000]
+
+    DB_ENGINE_NAME=mysql
+    DB_NAME='dbname'
+    DB_USER='user'
+    DB_PASSWORD=password
+    DB_HOST='localhost'
+    DB_PORT=3306
+
 In settings.py:
 
     from pathlib import Path
@@ -78,6 +92,25 @@ Example `settings/dev.py`:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+Example `settings/prod.py`:
+
+    from .base import *
+
+    DEBUG = False
+    ALLOWED_HOSTS = list(env('ALLOWED_HOSTS'))
+    CSRF_TRUSTED_ORIGINS = list(env('CSRF_TRUSTED_ORIGINS'))
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': env('DB_NAME'),
+            'USER': env('DB_USER'),
+            'PASSWORD': env('DB_PASSWORD'),
+            'HOST': env('DB_HOST'),
+            'PORT': env('DB_PORT'),
         }
     }
 

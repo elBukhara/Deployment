@@ -17,6 +17,7 @@ Run the following commands to bootstrap your environment:
 
 ## .ENV files
 
+    cd app
     vim .env
     i // to enter insert mode
     // paste the data
@@ -58,7 +59,7 @@ Creating a database for a Django Project:
     FLUSH PRIVILEGES;
     EXIT;
 
-Migrating:
+Migrating (/app):
 
     python3 manage.py makemigrations --settings=deployment.settings.prod
     python3 manage.py migrate --settings=deployment.settings.prod
@@ -68,7 +69,7 @@ Run the app with Waitress:
 
     waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
     
-Collect static files:
+Collect static files (/app):
 
     python3 manage.py collectstatic --settings=deployment.settings.prod
 
@@ -85,21 +86,24 @@ Config file (paste the following):
             listen [::]:80 default_server;
 
             location /static/ {
-                alias /home/shakhzod/Deployment/static/; 
+                alias /home/shakhzod/Deployment/app/static/; 
             }
 
             location /media/ {
-                alias /home/shakhzod/Deployment/media/; 
+                alias /home/shakhzod/Deployment/app/media/; 
             }
 
             location / {
                 proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host $host;
                 proxy_set_header X-Forwarded-Host $server_name;
                 proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
                 proxy_redirect off;
                 add_header P3P 'CP="ALL DSP COR PSAa OUR NOR ONL UNI COM NAV"';
                 add_header Access-Control-Allow-Origin *;
-            }
+        }
     }
 
 Allow access for static and media files to NGINX:
@@ -109,11 +113,6 @@ Allow access for static and media files to NGINX:
 Restart NGINX:
     
     sudo service nginx restart
-
-(Kill other ports if they are run):
-
-    sudo lsof -i :8000
-    sudo kill -9 $(sudo lsof -t -i:8000)
 
 Run again with Waitress:
 
@@ -127,13 +126,14 @@ Run again with Waitress:
 Config file:
     
     [program:deployment]
-    command=/home/shakhzod/Deployment/.venv/bin/gunicorn deployment.wsgi:application -b 127.0.0.1:8000 -w 4 --timeout 90
+    command=/bin/bash -c 'source /home/shakhzod/Deployment/.venv/bin/activate && cd app && gunicorn deployment.wsgi:application -b 127.0.0.1:8000 -w 4 --timeout 90'
     autostart=true
     autorestart=true
     stderr_logfile=/var/log/deployment.err.log
     stdout_logfile=/var/log/deployment.out.log
     directory=/home/shakhzod/Deployment
     user=shakhzod
+    startsecs=0
     environment=PATH="/home/shakhzod/Deployment/.venv/bin",DJANGO_SETTINGS_MODULE="deployment.settings.prod"
 
     
@@ -145,3 +145,8 @@ Update supervisor with the new process:
 To restart the process after the code updates run:
 
     sudo supervisorctl restart deployment
+
+Checking ports that are run by Supervisor/Gunicorn, Killing Ports:
+
+    sudo lsof -i :8000
+    sudo kill -9 $(sudo lsof -t -i:8000)
