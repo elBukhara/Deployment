@@ -7,7 +7,7 @@
 Run the following commands to bootstrap your environment:
     
     sudo apt-get update
-    sudo apt-get install -y git python3-dev python3-venv python3-pip supervisor nginx vim mysql-server libmysqlclient-dev
+    sudo apt-get install -y git python3-dev python3-venv python3-pip supervisor nginx vim mysql-server libmysqlclient-dev pkg-config
     git clone https://github.com/your-profile/your-project-name
     cd your-project-name/
   
