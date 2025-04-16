@@ -8,8 +8,8 @@ Run the following commands to bootstrap your environment:
     
     sudo apt-get update
     sudo apt-get install -y git python3-dev python3-venv python3-pip supervisor nginx vim mysql-server libmysqlclient-dev pkg-config
-    git clone https://github.com/your-profile/your-project-name
-    cd your-project-name/
+    git clone https://github.com/your-profile/project-name
+    cd project-name/
   
     python3 -m venv .venv   
     source .venv/bin/activate
@@ -61,17 +61,15 @@ Creating a database for a Django Project:
 
 Migrating (/app):
 
-    python3 manage.py makemigrations --settings=deployment.settings.prod
-    python3 manage.py migrate --settings=deployment.settings.prod
-    python3 manage.py loaddata data.json --settings=deployment.settings.prod
+Note that ``main`` is the project's root name
 
-Run the app with Waitress:
+    python3 manage.py makemigrations --settings=main.settings.prod
+    python3 manage.py migrate --settings=main.settings.prod
+    python3 manage.py loaddata data.json --settings=main.settings.prod
 
-    waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
-    
 Collect static files (/app):
 
-    python3 manage.py collectstatic --settings=deployment.settings.prod
+    python3 manage.py collectstatic --settings=main.settings.prod
 
 ## NGINX   
 
@@ -86,11 +84,11 @@ Config file (paste the following):
             listen [::]:80 default_server;
 
             location /static/ {
-                alias /home/shakhzod/Deployment/app/static/; 
+                alias /home/ubuntu/project-name/app/static/; 
             }
 
             location /media/ {
-                alias /home/shakhzod/Deployment/app/media/; 
+                alias /home/ubuntu/project-name/app/media/; 
             }
 
             location / {
@@ -108,33 +106,29 @@ Config file (paste the following):
 
 Allow access for static and media files to NGINX:
 
-    sudo usermod -a -G shakhzod www-data
+    sudo usermod -a -G ubuntu www-data
     
 Restart NGINX:
     
     sudo service nginx restart
 
-Run again with Waitress:
-
-    waitress-serve --listen=127.0.0.1:8000 deployment.wsgi:application
-
 ## Supervisor:
 
-    cd /etc/supervisor/conf.d/deployment.conf
-    sudo vim deployment.conf
+    cd /etc/supervisor/conf.d/project-name.conf
+    sudo vim project-name.conf
     
 Config file:
     
-    [program:deployment]
-    command=/bin/bash -c 'source /home/shakhzod/Deployment/.venv/bin/activate && cd app && gunicorn deployment.wsgi:application -b 127.0.0.1:8000 -w 4 --timeout 90'
+    [program:project-name]
+    command=/bin/bash -c 'source /home/ubuntu/project-name/.venv/bin/activate && cd app && gunicorn main.wsgi:application -b 127.0.0.1:8000 -w 4 --timeout 90'
     autostart=true
     autorestart=true
-    stderr_logfile=/var/log/deployment.err.log
-    stdout_logfile=/var/log/deployment.out.log
-    directory=/home/shakhzod/Deployment
-    user=shakhzod
+    stderr_logfile=/var/log/project-name.err.log
+    stdout_logfile=/var/log/project-name.out.log
+    directory=/home/ubuntu/project-name
+    user=ubuntu
     startsecs=0
-    environment=PATH="/home/shakhzod/Deployment/.venv/bin",DJANGO_SETTINGS_MODULE="deployment.settings.prod"
+    environment=PATH="/home/ubuntu/project-name/.venv/bin",DJANGO_SETTINGS_MODULE="main.settings.prod"
 
     
 Update supervisor with the new process:
@@ -144,7 +138,7 @@ Update supervisor with the new process:
     
 To restart the process after the code updates run:
 
-    sudo supervisorctl restart deployment
+    sudo supervisorctl restart project-name
 
 Checking ports that are run by Supervisor/Gunicorn, Killing Ports:
 
